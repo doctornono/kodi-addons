@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="repository.doctornono"
+       name="doctornono Repository"
+        version="0.0.6"
+        provider-name="doctornono">
+    <extension point="xbmc.addon.repository" name="doctornono Repository">
+    <dir>
+        <info compressed="false">http://192.168.0.35/kodi/addons.xml</info>
+        <checksum>http://192.168.0.35/kodi/addons.xml.md5</checksum>
+        <datadir zip="true">http://192.168.0.35/kodi/repo</datadir>
+    </dir>
+   </extension>
+
+    <extension point="xbmc.addon.metadata">
+        <summary lang="fr">doctornono Repository</summary>
+        <description lang="fr">Installer les extensions de doctornono</description>
+        <summary lang="en">doctornono Repository</summary>
+        <description lang="en">Download and install doctornono's addons</description>
+        <platform>all</platform>
+        <assets>
+            <icon>icon.png</icon>
+            <fanart>fanart.jpg</fanart>
+        </assets>
+    </extension>
+</addon>
