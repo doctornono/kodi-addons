@@ -2,4 +2,4 @@ import xbmc
 import xbmcgui
 
 dialog = xbmcgui.Dialog()
-name = dialog.notification('Info', 'Hello !')
+name = dialog.notification('Info', 'Hello World!')
