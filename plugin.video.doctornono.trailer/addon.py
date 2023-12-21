@@ -37,7 +37,7 @@ MOVIEDB_URLAPI =  'https://api.themoviedb.org/3/'
 MOVIEDB_KEY = my_addon.getSetting("key")
 listesuser= my_addon.getSetting("listes")
 MOVIEDB_LANGUAGE = my_addon.getSetting("langue")
-
+MOVIEDB_KEY = "9c1662a033ca5210dc75b91e0aa9b49e"
 class myWindow(xbmcgui.Window):
   def __init__(self):
     self.addControl(xbmcgui.ControlImage(0,0,400,300, 'D:\\photos\\2016-05-13 12.36.15 HDR.jpg'))
