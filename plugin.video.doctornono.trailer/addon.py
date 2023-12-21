@@ -11,6 +11,7 @@ import xbmc
 import xbmcgui
 import xbmcplugin 
 import xbmcaddon
+import xbmcvfs
 
 from bs4 import BeautifulSoup, Tag, NavigableString
 from random import *
@@ -28,7 +29,7 @@ mode = args.get('mode', None)
 xbmcplugin.setContent(addon_handle, 'movies')
 
 my_addon = xbmcaddon.Addon('plugin.video.doctornono.trailer')
-profile = xbmc.translatePath( my_addon.getAddonInfo('profile'))
+profile = xbmcvfs.translatePath( my_addon.getAddonInfo('profile'))
 
 
 #MOVIEDB_KEY = "9c1662a033ca5210dc75b91e0aa9b49e"
