@@ -20,7 +20,7 @@ def buildURL(query):
     return base_url + '?' + urllib.parse.urlencode(query)
 
 def buildURLIcon(image):
-    return my_addon.getAddonInfo('path') + '/ressources/icons/' + image
+    return my_addon.getAddonInfo('path') + '/resources/icons/' + image
 
 def buildURLCover(chemin):
     return 'D://Bibliothèques/Science-fiction/' + chemin + '/cover.jpg'
