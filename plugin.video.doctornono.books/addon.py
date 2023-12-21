@@ -48,7 +48,7 @@ def create_connection(db_file):
 
     return conn
 
-def select_sql(sql):
+def selectSQL(sql):
     """
     Query all rows in the tasks table
     :param conn: the Connection object
@@ -63,7 +63,13 @@ def select_sql(sql):
     return rows
 
 def choixSQL(mode, id = None):
-    if mode == 'parauteur':
+    if mode == 'encours':
+        sql = ''
+    elif mode == 'rechercher':
+        sql = "SELECT * FROM books WHERE title LIKE '%" + id + "%'"
+    elif mode == 'derniersajouts':
+        sql = "SELECT * FROM books ORDER BY timestamp DESC LIMIT 100"       
+    elif mode == 'parauteur':
         sql = 'SELECT id, sort FROM authors ORDER BY sort'
     elif mode == 'auteur':
         sql = ("SELECT * FROM books a, books_authors_link b, authors c WHERE b.book = a.id AND b.author = c.id AND b.author = %s ORDER BY a.sort") % id
@@ -76,21 +82,28 @@ def choixSQL(mode, id = None):
     elif mode == 'editeur':
         sql = ("SELECT * FROM books a, books_publishers_link b, publishers c WHERE b.book = a.id AND b.publisher = c.id AND b.publisher = %s ORDER BY name") % id
     elif mode == 'parcollection':
-        sql = ""
+        sql = "SELECT * FROM custom_column_1 ORDER BY value"
     elif mode == 'collection':
-        sql =   ""
+        sql =  ("SELECT * FROM books a, books_custom_column_1_link b, custom_column_1 c WHERE b.book = a.id AND b.value = c.id AND b.value = %s ORDER BY extra") % id
     elif mode == 'paretiquette':
         sql = "SELECT id, name FROM tags ORDER BY name"
     elif mode == 'etiquette':
         sql = ("SELECT * FROM books a, books_tags_link b, tags c WHERE b.book = a.id AND b.tag = c.id AND b.tag = %s ORDER BY name") % id
   
+
+    elif mode == 'epub':
+        sql = 'SELECT name, format FROM data WHERE book =' + id
+    elif mode == 'tagbook':
+        sql = "SELECT a.name FROM tags a, books_tags_link b WHERE a.id = b.tag AND b.book = " + id
+    elif mode == 'descbook':
+        sql = "SELECT text FROM comments WHERE book = " + id
+    
+
     
     
     
     
-    
-    
-    return select_sql(sql)
+    return selectSQL(sql)
 
 
 
@@ -100,33 +113,22 @@ def choixSQL(mode, id = None):
 
 
 
-def listItemAddFolder(label, icon, url, context = None, infos = None, pictures = None, isfolder = True, isPlayable = True):
+def listItemAddFolder(label, icon, url):
     
     li = xbmcgui.ListItem(label)
+    url = buildURL(url)
+    li.setArt({'thumb' : buildURLIcon(icon)})
 
-    if isfolder == True:
-        url = buildURL(url)
-    else:
-        if isPlayable == True:
-            li.setProperty('isplayable','true')
+    xbmcplugin.addDirectoryItem(handle=addon_handle, url=url, listitem=li, isFolder = True)    
 
-    if pictures != None:
-        li.setArt(pictures)
-    else:
-        li.setArt({'thumb' : buildURLIcon(icon)})
-        
-    li.setInfo('video', infos)
-    if context != None:
-        li.addContextMenuItems(context) 
 
-    xbmcplugin.addDirectoryItem(handle=addon_handle, url=url, listitem=li, isFolder = isfolder)    
 
 def listItemAddBook(row):
 
     li = xbmcgui.ListItem(str(row[1]))
 
     path = row[9]
-    liens = select_sql('SELECT name, format FROM data WHERE book =' + str(row[0]))
+    liens = choixSQL('epub', str(row[0]))
     for lien in liens:
         extension = lien[1]
         fichier = lien[0]
@@ -147,7 +149,7 @@ def listItemAddBook(row):
 def listItemSetInfo(book):
     idbook = book[0]
     title = book[1]
-    tags   = select_sql("SELECT a.name FROM tags a, books_tags_link b WHERE a.id = b.tag AND b.book = " + str(idbook))
+    tags   = choixSQL('tagbook', str(idbook))
     strtags = ' '
     for tag in tags:
         strtags += ' ' + str(''.join(tag))
@@ -155,7 +157,7 @@ def listItemSetInfo(book):
     year = book[4]
     rating = 3
     
-    desc = select_sql("SELECT text FROM comments WHERE book = " + str(idbook))
+    desc = choixSQL('descbook', str(idbook))
     if not desc:
         desc = ''
     else:
@@ -183,12 +185,10 @@ def listItemSetInfo(book):
 CHEMIN_BD_CALIBRE = r"D:\Bibliothèques\Science-fiction\metadata.db"
 PLAYER = 'C:\\Program Files\\Calibre2\\ebook-viewer.exe'
 
-#
-#dialog = xbmcgui.Dialog()
-#name = dialog.notification('Info', 'Hello World!')
+
 
 my_addon = xbmcaddon.Addon('plugin.video.doctornono.books')
-print(str(sys.argv))
+
 base_url = sys.argv[0]
 addon_handle = int(sys.argv[1])
 args = urllib.parse.parse_qs(sys.argv[2][1:])
@@ -198,34 +198,50 @@ xbmcplugin.setContent(addon_handle, 'movies')
 
 ### ACCUEIL ###
 if mode is None:
-    listItemAddFolder('En cours de lecture',    'open-book.png',    {'mode': 'encours'})
-    listItemAddFolder('Rechercher',             'search.png',       {'mode': 'rechercher'})
-    listItemAddFolder('Derniers ajouts',        'films.png',        {'mode': 'derniersajouts'})
+    listItemAddFolder('En cours de lecture',    'star.png',         {'mode': 'encours'})
+    listItemAddFolder('Rechercher',             'rechercher.png',   {'mode': 'rechercher'})
+    listItemAddFolder('Derniers ajouts',        'last.png',         {'mode': 'derniersajouts'})
     listItemAddFolder('Par auteur',             'auteur.png',       {'mode': 'parauteur'})
     listItemAddFolder('Par série',              'serie.png',        {'mode': 'parserie'})
-    listItemAddFolder('Par éditeur',            'publisher.png',    {'mode': 'parediteur'})
-    listItemAddFolder('Par collection',         'biblio.png',       {'mode': 'parcollection'})
-    listItemAddFolder('Par étiquette',          'tags.png',         {'mode': 'paretiquette'})
+    listItemAddFolder('Par éditeur',            'editeur.png',      {'mode': 'parediteur'})
+    listItemAddFolder('Par collection',         'collection.png',   {'mode': 'parcollection'})
+    listItemAddFolder('Par étiquette',          'etiquette.png',    {'mode': 'paretiquette'})
 
+### A FAIRE ###
 elif mode[0] == 'encours':
-    listItemAddFolder('a Faire', 'films.png', {'mode': 'actuellement', 'page' : '1'})
-elif mode[0] == 'parcollection':
-    listItemAddFolder('a Faire', 'films.png', {'mode': 'actuellement', 'page' : '1'})
-elif mode[0] == 'rechercher':
-    listItemAddFolder('a Faire', 'films.png', {'mode': 'actuellement', 'page' : '1'})    
+    listItemAddFolder('a Faire', 'films.png', {'mode': 'actuellement'})
 
-### AFFICHE LA LISTE DE TOUS LES AUTEURS OU DE TOUTES LES SERIES OU DE TOUS LES EDITEURS OU DE TOUTES LES ETIQUETTES
-elif mode[0] in ['parauteur', 'parserie', 'parediteur', 'paretiquette']:
+
+
+
+
+### AFFICHE LES 100 DERNIERS LIVRES AJOUTES DANS CALIBRE
+elif mode[0] == 'derniersajouts':
     rows = choixSQL(mode[0])
     for row in rows:
-        listItemAddFolder(str(row[1]),          'films.png',        {'mode': mode[0].replace('par',''), 'id': row[0]})
+        listItemAddBook(row)
 
-### AFFICHE LES LIVRES D'UN AUTEUR PARTICULIER OU D'UNE SERIE OU D'UN EDITEUR OU D'UNE ETIQUETTE
-elif mode[0] in ['auteur', 'serie', 'editeur', 'etiquette']:
-    id = args['id'][0]
+### AFFICHE LA LISTE DE TOUS LES AUTEURS OU DE TOUTES LES SERIES OU DE TOUS LES EDITEURS OU DE TOUTES LES ETIQUETTES OU DE TOUTES LES COLLECTIONS
+elif mode[0] in ['parauteur', 'parserie', 'parediteur', 'paretiquette', 'parcollection']:
+    rows = choixSQL(mode[0])
+    nomcourt = mode[0].replace('par','')
+    for row in rows:
+        listItemAddFolder(str(row[1]),          nomcourt + '.png',        {'mode': nomcourt, 'id': row[0]})
+
+
+### AFFICHE LES LIVRES D'UN AUTEUR PARTICULIER OU D'UNE SERIE OU D'UN EDITEUR OU D'UNE ETIQUETTE OU D'UNE COLLECTION
+### AFFICHE LES RESULTATS DE LA RECHERCHE
+elif mode[0] in ['auteur', 'serie', 'editeur', 'etiquette', 'collection', 'rechercher']:
+    if mode[0] == 'rechercher':
+        dialog = xbmcgui.Dialog()
+        id =  dialog.input('Votre recherche', defaultt='', type=xbmcgui.INPUT_ALPHANUM)
+    else:        
+        id = args['id'][0]
+
     rows = choixSQL(mode[0], id)
     for row in rows:
         listItemAddBook(row)
+
 
 ### OUVRE LE LIVRE DANS L'APPLICATION CHOISIE
 elif mode[0] == 'player':
