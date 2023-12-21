@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<addon id="plugin.video.doctornono.books" name="doctornono.books" version="0.0.1" provider-name="doctornono">
+  <requires>
+    <import addon="xbmc.python" version="3.0.0"/>
+    <!--<import addon="script.module.beautifulsoup4"/>
+    <import addon="script.module.urllib3"/>
+    <import addon="script.module.requests" /> -->
+  </requires>
+  <extension point="xbmc.python.pluginsource" library="addon.py">
+    <provides>video</provides>
+  </extension>
+  <extension point="xbmc.addon.metadata">
+    <summary lang="en_GB">doctornono books</summary>
+    <description lang="en_GB">Browse and Read your ebooks with Kodi</description>
+    <disclaimer lang="en_GB">The author does not host or distribute any of the content displayed by this addon. The author does not have any affiliation with the content provider.</disclaimer>
+    
+    <summary lang="fr_FR">doctornono books</summary>
+    <description lang="fr_FR">Parcourez et lisez votre collection d'ebboks Calibre depuis Kodi</description>
+    <disclaimer lang="fr_FR">L'auteur n'héberge pas et ne distribue pas d'ebooks</disclaimer>
+
+    <language>fr</language>
+    <platform>all</platform>
+    <license></license>
+    <forum></forum>
+    <website>https://doctornono.github.io/kodi-addons/</website>
+    <email></email>
+    <source>https://github.com/doctornono/kodi-addons</source>
+    <assets>
+        <icon>icon.png</icon>
+        <fanart>fanart.jpg</fanart>
+        <screenshot>screenshot1.jpg</screenshot>
+        <screenshot>screenshot2.jpg</screenshot>
+        <screenshot>screenshot3.jpg</screenshot>
+    </assets>    
+  </extension>
+</addon>
