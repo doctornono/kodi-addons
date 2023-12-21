@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <settings>
     <category label="30000">
-        <setting label="30001" type="text"   id="key" default=""/>
-        <setting label="30003" type="text"   id="langue" default="fr-FR"/>
+        <setting label="qsd qsd qsd1" type="text"   id="key" default=""/>
+        <setting label="dossier" type="folder"   id="langue" />
+        <setting label="dossier 2" type="folder"   id="langue" />
         <setting label="30002" type="text"   id="listes" default=""/>
         <setting type="sep"/>
         <setting id="debug" type="bool" label="30010" default="false"/>
