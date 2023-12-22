@@ -64,7 +64,7 @@
   </extension>
 </addon>
 
-<addon id="plugin.video.doctornono.trailer" name="doctornono.trailer" version="0.0.1" provider-name="doctornono">
+<addon id="plugin.video.doctornono.trailer" name="doctornono.trailer" version="0.0.2" provider-name="doctornono">
   <requires>
         <trycatch>
             <try>
