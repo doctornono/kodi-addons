@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MPD xmlns="urn:mpeg:dash:schema:mpd:2011" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:mpeg:dash:schema:mpd:2011 DASH-MPD.xsd" profiles="urn:mpeg:dash:profile:isoff-on-demand:2011" minBufferTime="PT2S" type="static" mediaPresentationDuration="PT7817.8515625S">
+  <Period duration="PT7817.8515625S" id="0">
+    <AdaptationSet id="0" contentType="audio" lang="fr">
+        <Representation id="0" bandwidth="388490" codecs="mp4a.40.2" mimeType="audio/mp4" audioSamplingRate="48000">
+            <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="6"/>
+            <BaseURL>_a_48188_0.mp4</BaseURL>
+            <SegmentBase indexRange="819-16486" timescale="48000">
+                <Initialization range="0-818"/>
+            </SegmentBase>
+        </Representation>
+        <Representation id="1" bandwidth="195050" codecs="mp4a.40.2" mimeType="audio/mp4" audioSamplingRate="48000">
+            <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2"/>
+            <BaseURL>_a_24188_0.mp4</BaseURL>
+            <SegmentBase indexRange="819-16486" timescale="48000">
+                <Initialization range="0-818"/>
+            </SegmentBase>
+        </Representation>
+        <Representation id="2" bandwidth="99316" codecs="mp4a.40.2" mimeType="audio/mp4" audioSamplingRate="48000">
+            <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2"/>
+            <BaseURL>_a_12187_0.mp4</BaseURL>
+            <SegmentBase indexRange="819-16486" timescale="48000">
+                <Initialization range="0-818"/>
+            </SegmentBase>
+        </Representation>
+        <Label>fre</Label>
+    </AdaptationSet>
+    <AdaptationSet id="1" contentType="audio" lang="en">
+        <Representation id="3" bandwidth="388411" codecs="mp4a.40.2" mimeType="audio/mp4" audioSamplingRate="48000">
+            <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="6"/>
+            <BaseURL>_a_48188_4.mp4</BaseURL>
+            <SegmentBase indexRange="819-16486" timescale="48000">
+                <Initialization range="0-818"/>
+            </SegmentBase>
+        </Representation>
+        <Representation id="4" bandwidth="195050" codecs="mp4a.40.2" mimeType="audio/mp4" audioSamplingRate="48000">
+            <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2"/>
+            <BaseURL>_a_24188_4.mp4</BaseURL>
+            <SegmentBase indexRange="819-16486" timescale="48000">
+                <Initialization range="0-818"/>
+            </SegmentBase>
+        </Representation>
+        <Representation id="5" bandwidth="99078" codecs="mp4a.40.2" mimeType="audio/mp4" audioSamplingRate="48000">
+            <AudioChannelConfiguration schemeIdUri="urn:mpeg:dash:23003:3:audio_channel_configuration:2011" value="2"/>
+            <BaseURL>_a_12188_4.mp4</BaseURL>
+            <SegmentBase indexRange="819-16486" timescale="48000">
+                <Initialization range="0-818"/>
+            </SegmentBase>
+        </Representation>
+        <Label>eng</Label>
+    </AdaptationSet>
+    <AdaptationSet id="2" contentType="video" width="640" height="268" frameRate="24000/1001" subsegmentAlignment="true" par="43:18">
+        <Representation id="6" bandwidth="557685" codecs="avc1.42c015" mimeType="video/mp4" sar="1:1">
+            <BaseURL>_v_61831_0.mp4</BaseURL>
+            <SegmentBase indexRange="825-16492" timescale="24000">
+                <Initialization range="0-824"/>
+            </SegmentBase>
+        </Representation>
+    </AdaptationSet>
+    <AdaptationSet id="3" contentType="video" width="856" height="358" frameRate="24000/1001" subsegmentAlignment="true" par="43:18">
+        <Representation id="7" bandwidth="884127" codecs="avc1.4d401f" mimeType="video/mp4" sar="3978:3983">
+            <BaseURL>_v_90384_0.mp4</BaseURL>
+            <SegmentBase indexRange="883-16550" timescale="24000">
+                <Initialization range="0-882"/>
+            </SegmentBase>
+        </Representation>
+    </AdaptationSet>
+    <AdaptationSet id="4" contentType="video" width="1280" height="536" frameRate="24000/1001" subsegmentAlignment="true" par="43:18">
+        <Representation id="8" bandwidth="2069659" codecs="avc1.4d401f" mimeType="video/mp4" sar="1:1">
+            <BaseURL>_v_210771_0.mp4</BaseURL>
+            <SegmentBase indexRange="863-16530" timescale="24000">
+                <Initialization range="0-862"/>
+            </SegmentBase>
+        </Representation>
+    </AdaptationSet>
+    <AdaptationSet id="5" contentType="video" width="1920" height="804" frameRate="24000/1001" subsegmentAlignment="true" par="43:18">
+        <Representation id="9" bandwidth="3103360" codecs="avc1.640028" mimeType="video/mp4" sar="1:1">
+            <BaseURL>_v_316703_0.mp4</BaseURL>
+            <SegmentBase indexRange="868-16535" timescale="24000">
+                <Initialization range="0-867"/>
+            </SegmentBase>
+        </Representation>
+    </AdaptationSet>
+  </Period>
+</MPD>

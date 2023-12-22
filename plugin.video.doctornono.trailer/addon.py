@@ -1,11 +1,6 @@
 import sys
 import urllib
-from urllib.parse import urlparse
-from urllib import request
-
 import json
-
-import os.path
 
 import xbmc
 import xbmcgui
@@ -13,495 +8,1046 @@ import xbmcplugin
 import xbmcaddon
 import xbmcvfs
 
-from bs4 import BeautifulSoup, Tag, NavigableString
-from random import *
+from lib.myTMDB import myTMDB, tmdb2kodi, myListItems
+from lib.myTrakt import myTrakt
+from lib.myFanartTV import myFanartTV
+from lib.myUptobox import myUptobox
 
-import sqlite3
-from sqlite3 import Error
+from lib import PTN
 
 
+# base_url = plugin://plugin.video.doctornono.trailer/
 base_url = sys.argv[0]
+# int represetant l'addon
 addon_handle = int(sys.argv[1])
+# tous les paramètres envoyés dans l'url
 args = urllib.parse.parse_qs(sys.argv[2][1:])
-
 mode = args.get('mode', None)
 
-xbmcplugin.setContent(addon_handle, 'movies')
-
 my_addon = xbmcaddon.Addon('plugin.video.doctornono.trailer')
-profile = xbmcvfs.translatePath( my_addon.getAddonInfo('profile'))
+
+#xbmcplugin.setContent(addon_handle, 'movies')
 
 
-#MOVIEDB_KEY = "9c1662a033ca5210dc75b91e0aa9b49e"
-MOVIEDB_URLAPI =  'https://api.themoviedb.org/3/'
-MOVIEDB_KEY = my_addon.getSetting("key")
-listesuser= my_addon.getSetting("listes")
-MOVIEDB_LANGUAGE = my_addon.getSetting("langue")
-MOVIEDB_KEY = "9c1662a033ca5210dc75b91e0aa9b49e"
-class myWindow(xbmcgui.Window):
-  def __init__(self):
-    self.addControl(xbmcgui.ControlImage(0,0,400,300, 'D:\\photos\\2016-05-13 12.36.15 HDR.jpg'))
-    self.strActionInfo = xbmcgui.ControlLabel(100, 120, 200, 200, '', 'font13', '0xFFFF00FF')
-    self.addControl(self.strActionInfo)
-    self.strActionInfo.setLabel('Push BACK to quit')
-    self.button0 = xbmcgui.ControlButton(350, 500, 80, 30, "HELLO")
-    self.addControl(self.button0)
-    self.setFocus(self.button0)
-
-  def onAction(self, action):
-    if action == ACTION_PREVIOUS_MENU:
-      self.close()
-
-  def onControl(self, control):
-    if control == self.button0:
-      self.message('you pushed the button')
-
-  def message(self, message):
-    dialog = xbmcgui.Dialog()
-    dialog.ok(" My message title", message)
+TRAKT_ACTIVE        = my_addon.getSetting("trakt-active")
+FANART_TV_ACTIVE    = my_addon.getSetting("fanart-active")
+UPTOBOX_ACTIVE      = my_addon.getSetting("uptobox-active")
 
 
-class MyClass(xbmcgui.Window):
-  def __init__(self):
-    self.window = xbmcgui.Window(xbmcgui.getCurrentWindowId())
-    self.window.setProperty('MyAddonIsRunning', 'true')
-    
-    self.strActionInfo = xbmcgui.ControlLabel(100, 120, 200, 200, '', 'font13', '0xFFFF00FF')
-    self.addControl(self.strActionInfo)
-    self.strActionInfo.setLabel('Push BACK to quit - A to reset text')
-      
-  def onAction(self, action):
-    if action == ACTION_PREVIOUS_MENU:
-      self.close()
 
+def getTMDBParameters():
+    parametresTMDB = {
+        "username" 		: my_addon.getSetting("tmdb-username"),
+        "password" 		: my_addon.getSetting("tmdb-password"),
+        "api_key"  		: my_addon.getSetting("tmdb-key"),
+        "langue" 		: my_addon.getSetting("tmdb-langue"),
+        "token"         : my_addon.getSetting("tmdb-token"),
+        "session_id" 	: my_addon.getSetting("tmdb-session-id"),
+        "user_id"       : my_addon.getSetting("tmdb-user-id"),
+        "sql_path" 		: xbmcvfs.translatePath(my_addon.getAddonInfo('profile'))
+    } 
+
+    return parametresTMDB
+
+def getTraktParameters():
+    parametresTrakt = {
+        "username" 		: my_addon.getSetting("trakt-username"),
+        "api_key"  		: my_addon.getSetting("trakt-key"),
+        "client_secret" : my_addon.getSetting("trakt-clientsecret"),
+        "access_token" 	: my_addon.getSetting("trakt-access-token"),
+        "refresh_token" : my_addon.getSetting("trakt-refresh-token"),
+        "expire" 		: my_addon.getSetting("trakt-expire")
+    } 
+
+    return parametresTrakt
+
+def getUserParameters():
+    parametresUser = {
+        'userMoviesFavorites'  : userMoviesFavorites,
+        'userMoviesRated'      : userMoviesRated,
+        'userMoviesWatchlist'  : userMoviesWatchlist,
+        'imdbMoviesTop250'     : imdbMoviesTop250,
+
+        'userTVShowFavorites'  : userTVShowFavorites,
+        'userTVShowRated'      : userTVShowRated,
+        'userTVShowWatchlist'  : userTVShowWatchlist,
+        'imdbTVShowsTop250'    : imdbTVShowsTop250
+    }
+
+    return parametresUser
 
 def build_url(query):
     return base_url + '?' + urllib.parse.urlencode(query)
 
-
-def loadJson(url):
-    req =  urllib.request.urlopen(url)
-    response = req.read()
-    req.close()
-    data = json.loads(response)
-    return data       
-
-
-def buildURLMovieDB(folder, param):
-    url = MOVIEDB_URLAPI + folder + '?api_key=' + MOVIEDB_KEY + param
-    return url
-
-def buildURLIcon(image):
-    return my_addon.getAddonInfo('path') + '/resources/icons/' + image
-
-
-def getDataMovieDB(category, moviedbID = None, codeiso = None, page = None, q = None):
-    filter = None
-    if category == 'movie':
-        lien = buildURLMovieDB('movie/' + moviedbID, '&language=' + MOVIEDB_LANGUAGE)
-    elif category == 'cast':
-        lien = buildURLMovieDB('movie/' + moviedbID + '/credits', '')
-    elif category == 'genre':
-        lien = buildURLMovieDB('genre/movie/list', '&language=' + MOVIEDB_LANGUAGE)
-    elif category == 'videos':
-        lien = buildURLMovieDB('movie/' +  moviedbID + '/videos', '&language='+codeiso)
-    elif category == 'userlist':
-        lien = buildURLMovieDB('list/' + moviedbID , '')
-
-    elif category == 'prochainement':
-        lien = buildURLMovieDB('movie/upcoming', '&language='+codeiso+'&page='+page)
-        filter = 'results'
-    elif category == 'actuellement':
-        lien = buildURLMovieDB('movie/now_playing' , '&language='+codeiso+'&page='+page)
-        filter = 'results'
-    elif category == 'popular':
-        lien = buildURLMovieDB('movie/popular' , '&language='+codeiso+'&page='+page)
-        filter = 'results'
-    elif category == 'bestrank':
-        lien = buildURLMovieDB('movie/top_rated' , '&language='+codeiso+'&page='+page)
-        filter = 'results'
-    elif category == 'search':
-        query = q.replace(' ', '%20')
-        lien = buildURLMovieDB('search/movie' , '&language='+codeiso+'&query='+query+'&page='+page+'&include_adult=false')
-        filter = 'results'       
-    elif category == 'lists':
-        lien = buildURLMovieDB('list/'+page, '&language='+codeiso)
-        filter = 'items' 
-
-
-    if filter == None:
-        return loadJson(lien)
-    else:
-        data = loadJson(lien)
-        return data[''+ filter +'']
+def writeNotification(message):
+    dialog = xbmcgui.Dialog()
+    dialog.notification('myTMDB', message, xbmcgui.NOTIFICATION_INFO, 5000)
 
 
 
-# GESTION MOVIE
+def viewSelect(rtmdb):
 
-def listItemSetPictures(poster_path):
-    pictures = {    
-                    'thumb':   'https://image.tmdb.org/t/p/w185' + poster_path, 
-                    'poster':  'https://image.tmdb.org/t/p/w500' + poster_path,
-                    'fanart':  'https://image.tmdb.org/t/p/original' + poster_path
-    } 
-    return pictures     
-
-
-def listItemSetInfo(movie, chaine_genre):
-    infos = {    
-                    'title': movie['title'], #.encode('utf8', 'replace'),
-                    'genre' : chaine_genre,
-                    'year' : movie['release_date'],
-                    'rating' : movie['vote_average'],
-                    'plot' : movie['overview'], #.encode('utf8', 'replace'),          
-                    'originaltitle' : movie['original_title'], #.encode('utf8', 'replace'),          
-                    'code' : movie['id'],           
-                    'mediatype' : 'movie'
-    } 
-    return infos
+    listitems = []
+    for movie in rtmdb['results']:
+        if 'release_date' in movie:
+            year = ' (' + movie['release_date'][0:4] + ')'
+        else:
+            year = ''                   
+        listitem = xbmcgui.ListItem(movie['title'] + year)
+        if movie['poster_path'] is not None:
+            listitem.setArt({'thumb': 'https://image.tmdb.org/t/p/original' + movie['poster_path']})
+        listitems.append(listitem)
+    dialog = xbmcgui.Dialog()
+    ret = dialog.select(file['file_name'], listitems, useDetails = True)
+    return ret  
 
 
-def listItemAddFolder(label, icon, url, context = None, infos = None, pictures = None, isfolder = True, isPlayable = True):
+
+
+def listAddSortMethod(media):
+    xbmcplugin.addSortMethod(addon_handle, xbmcplugin.SORT_METHOD_TITLE_IGNORE_THE)
+    xbmcplugin.addSortMethod(addon_handle, xbmcplugin.SORT_METHOD_VIDEO_YEAR)
+    xbmcplugin.addSortMethod(addon_handle, xbmcplugin.SORT_METHOD_VIDEO_RATING)
+    xbmcplugin.addSortMethod(addon_handle, xbmcplugin.SORT_METHOD_VIDEO_RUNTIME)
+    #xbmcplugin.addSortMethod(addon_handle, xbmcplugin.SORT_METHOD_DATEADDED)
     
-    li = xbmcgui.ListItem(label)
+    #xbmcplugin.SORT_METHOD_EPISODE
 
-    if isfolder == True:
-        url = build_url(url)
-    else:
-        if isPlayable == True:
-            li.setProperty('isplayable','true')
 
-    if pictures != None:
-        li.setArt(pictures)
-    else:
-        li.setArt({'thumb' : buildURLIcon(icon)})
+"""
+//////////// MOVIE ////////////
+"""
+def addMovie(tmdbID, url = '', isfolder = True, idliste = None, movie = {}):
+    if movie == {}:
+        movie = mytmdb.getMovie(tmdbID)
+    data = t2k.listItemSetInfoMovie(str(tmdbID), movie, imdbMoviesTop250, userMoviesRated)
+    mylistItem.listItemAddMovie(tmdbID, data, movie, url, isfolder, idliste, getUserParameters())
+
+"""
+//////////// TV SHoW ////////////
+"""
+def addTVShow(tmdbID, url = '', isfolder = True, idliste = None, tvshow = {}):
+    if tvshow == {}:
+        tvshow = mytmdb.getTVShow(tmdbID)
+    data = t2k.listItemSetInfoTVShow(tmdbID, tvshow, imdbTVShowsTop250, userTVShowRated)
+    mylistItem.listItemAddTVShow(tmdbID, data, tvshow, url, isfolder, idliste, getUserParameters())
+
+
+def addSeasons(tmdbID):
+    data = mytmdb.getTVShow(tmdbID)
+    tvshow = t2k.listItemSetInfoTVShow(tmdbID, data, imdbTVShowsTop250, userTVShowRated)
+    mylistItem.listItemAddSeasons(tmdbID, data, tvshow)
+
+
+def addSeason(tmdbID, season_number):
+    season = mytmdb.getTVShowSeason(tmdbID, season_number, force = True)
+    tvshow = mytmdb.getTVShow(tmdbID)
+   
+    for episode in season['episodes']:
+        infos = t2k.listItemSetInfoEpisode(tmdbID, tvshow, season , episode, imdbTVShowsTop250, userTVShowRated)
+        mylistItem.listItemAddSeason(tmdbID, episode, infos)
+
+
+
+
+
+
+def migrerTMDBversTrakt(cat):
+    
+    if cat == 'vote':
+        rated = json.loads(mytmdb.userGetAllMovies('rated'))
+        ids = []
+        for film in rated['data']:
+            id = {
+                "rating": film['userrating'],
+                "ids": {
+                    "tmdb": film['tmdb_id']
+                }
+            }
+            ids.append(id)
+        mytrakt.addRatings('movies', ids)
+    elif cat == 'vue':
+        rated = json.loads(mytmdb.userGetAllMovies('rated'))
+        ids = []
+        for film in rated['data']:
+            id = {
+                "ids": {
+                    "tmdb": film['tmdb_id']
+                }
+            }
+            ids.append(id)        
+        mytrakt.addMediaToHistory('movies', ids)
+    elif cat == 'favoris':
+        favs = json.loads(mytmdb.userGetAllMovies('favorite', force=True))
+        ids = []
+        for film in favs['data']:
+            id = {
+                "ids": {
+                    "tmdb": film['tmdb_id']
+                }
+            }
+            ids.append(id)        
+        mytrakt.addMediaToCollection('movies', ids)      
+
+
+def migrerTraktversStream():
+    col = mytrakt.getCollection('shows')
+    xbmc.log('+++++++++++++++++++++++++++++++++++++++++++++++++'+str(col))
+    ids=[]
+    i=0
+    for film in col:
         
-    li.setInfo('video', infos)
-    if context != None:
-        li.addContextMenuItems(context) 
+        id = {
+            "ids": {
+                "tmdb": film['show']['ids']['tmdb']
+            }
+        }
+        ids.append(id)   
+        i = i + 1
+        if i == 1000:
+            break         
+    #xbmc.log(str(ids))
+    #xbmc.log('++++++++++++++++++++++++++++++++++++++++++++++++++'+str(mytrakt.addMediaToCollection('movies', 842675 )))
+    mytrakt.addMediatoUserList('eventuellement', ids, 'shows')
 
-    xbmcplugin.addDirectoryItem(handle=addon_handle, url=url, listitem=li, isFolder = isfolder)    
+#//////////////////////// debut  //////////////////////////////////////////
+mytmdb = myTMDB.myTMDB(getTMDBParameters())
 
+if mytmdb.checkDatabaseExistSQL() == False : mytmdb.createDatabaseSQL()
 
-def formatGenres(genres):
-    chaineGenre= ''
-    for genre in listeGenres['genres']:
-        if genre['id'] in genres:
-            chaineGenre = chaineGenre + genre['name'] + " / "
-    chaineGenre = chaineGenre[:len(chaineGenre)-2]  
+userMoviesFavorites  = json.loads(mytmdb.userGetAllMovies('favorite'))
+userMoviesRated      = json.loads(mytmdb.userGetAllMovies('rated'))
+userMoviesWatchlist  = json.loads(mytmdb.userGetAllMovies('watchlist'))
+imdbMoviesTop250     = json.loads(mytmdb.getIMDBTop250('movie'))
 
-    return chaineGenre 
-
-def formatGenres2(genres):
-    chaineGenre= ''
-    for genre in genres:
-        for genrefr in listeGenres['genres']:
-            if genrefr['id'] == genre['id']:
-                chaineGenre = chaineGenre + genre['name'] + " / "
-    chaineGenre = chaineGenre[:len(chaineGenre)-2]
-
-    return chaineGenre 
-
-
-
-
+userTVShowFavorites  = json.loads(mytmdb.userGetAllTVShows('favorite'))
+userTVShowRated      = json.loads(mytmdb.userGetAllTVShows('rated'))
+userTVShowWatchlist  = json.loads(mytmdb.userGetAllTVShows('watchlist'))
+imdbTVShowsTop250    = json.loads(mytmdb.getIMDBTop250('tvshow'))
 
 
-
-### FAVORITES ###
-def favExistXML():
-    if os.path.isfile(profile+'fav.xml') == False:
-        f = open(profile+'fav.xml', "w")
-        f.write("<favs></favs>")
-        f.close()  
-
-
-def favOpenXML():
-    lienimdb = 'file:' + urllib.request.pathname2url(profile + 'fav.xml')
-    req =  urllib.request.urlopen(lienimdb)
-    response = req.read()
-    req.close()
-    return response
-
-
-def favSaveXML(chaine):
-    f = open(profile+'fav.xml', "w")
-    f.write(chaine)
-    f.close()
-
-#OK
-def favAddListe(name):
-    soup = BeautifulSoup(favOpenXML(), 'html.parser')
-    tag = soup.new_tag('fav')
-    tag['id']= randint(1,1000000)
-    tag['name'] = name
-    soup.favs.append(tag)
-    favSaveXML(soup.prettify())
-
-#OK
-def favDelListe(id):
-    soup = BeautifulSoup(favOpenXML(), 'html.parser')
-    for liste in soup.find_all('fav'):
-        if liste['id']== str(id):
-             # supprimer le noeud
-            liste.extract()
-
-    favSaveXML(soup.prettify())
-
-def favRenameListe(id):
-    soup = BeautifulSoup(favOpenXML(), 'html.parser')
-    for liste in soup.find_all('fav'):
-        if liste['id']== str(id):
-             # supprimer le noeud
-            #liste.extract()
-            dialog = xbmcgui.Dialog()
-            d = dialog.input('New list name', defaultt=liste['name'], type=xbmcgui.INPUT_ALPHANUM)
-            liste['name']= d
-
-    favSaveXML(soup.prettify())
-
-
-def favAddFav(idlist, idmovie, idtrailer, name, key):
-    soup = BeautifulSoup(favOpenXML(), 'html.parser')
-    tag = soup.new_tag('trailer')
-    tag['idtrailer']= idtrailer
-    tag['idmovie']= idmovie
-    tag['key']= key
-    tag.string= name
-
-    for link in soup.findAll('fav'):
-        if link['id'] == idlist:
-           link.insert(0, tag) 
-    favSaveXML(soup.prettify())
-
-
-def favDelFav(id):
-    soup = BeautifulSoup(favOpenXML(), 'html.parser')
-    for liste in soup.find_all('trailer'):
-        if liste['idtrailer']==id:
-            # supprimer le noeud
-            liste.extract()     
-    
-    favSaveXML(soup.prettify())
+t2k = tmdb2kodi.tmdb2kodi()
+mylistItem = myListItems.myListItems(base_url, my_addon, addon_handle)
+mytrakt = myTrakt.myTrakt(getTraktParameters())
+u2b = myUptobox.myUptobox(my_addon.getSetting("uptobox-key"))
 
 
 
-def create_connection(db_file):
-    """ create a database connection to the SQLite database
-        specified by the db_file
-    :param db_file: database file
-    :return: Connection object or None
-    """
-    conn = None
-    try:
-        conn = sqlite3.connect(db_file)
-    except Error as e:
-        print(e)
-
-    return conn
-
-def select_all_tasks(conn):
-    """
-    Query all rows in the tasks table
-    :param conn: the Connection object
-    :return:
-    """
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM tasks")
-
-    rows = cur.fetchall()
-
-    for row in rows:
-        print(row)
-
-#debut
-favExistXML()
-listeGenres = getDataMovieDB('genre')
-
-#home
+# ---------------------------ACCUEIL -------------------------
 if mode is None:
+    #migrerTraktversStream()
+    #migrerTMDBversTrakt('favoris')
+    #addMovie(406759, isfolder = True)
+    #addTVShow(1402, isfolder= True) 
+    #mytrakt.addMediaToCollection('movies', 842675 )
 
-    listItemAddFolder('Actuellement', 'films.png', {'mode': 'actuellement', 'page' : '1'})
-    listItemAddFolder('Prochainement', 'films_annees.png', {'mode': 'prochainement', 'page' : '1'})
-    listItemAddFolder('Populaire', 'films_news.png', {'mode': 'popular', 'page' : '1'})
-    listItemAddFolder('Top Rated', 'films_views.png', {'mode': 'bestrank', 'page' : '1'})
-    listItemAddFolder('Search', 'search.png', {'mode': 'search', 'page' : '1'})
+    mylistItem.listItemAddFolder('Rechercher',     'search.png',   {'mode': 'searchengine', 'page' : '1', 'q' : ''})
+    mylistItem.listItemAddFolder('myTMDB',         'tmdb.png',     {'mode': 'mytmdb-menu'})
 
-    #gestion des listes personnelles de movieDB
-    tabliste = listesuser.split('|')
-    for item in tabliste:
-            data = getDataMovieDB('userlist', item)
-            listItemAddFolder(data['name'], 'listes.png', {'mode': 'lists', 'page' : item})
-
-    # gestion des favoris
-    soup = BeautifulSoup(favOpenXML())
-    for link in soup.findAll('fav'):
-        listItemAddFolder(link['name'], 'star.png', {'mode': 'favorites', 'page' : link['id']}, 
-                        [ ('Delete list', 'RunPlugin(%s?mode=removelist&id=%s)' % (base_url, link['id'])),  ('Rename list', 'RunPlugin(%s?mode=renamelist&id=%s)' % (base_url, link['id'])) ])           
-
-    # creer liste de favoris
-    listItemAddFolder('Add Personal List', 'star.png',  build_url({'mode': 'addlist'}), None, None, None, False, False)
-
-    listItemAddFolder('Add Smart List', 'search.png', build_url({'mode': 'addsmartlist'}), None, None, None, False, False)
+    if my_addon.getSetting("trakt-active") == 'true':
+        mylistItem.listItemAddFolder('myTrakt',    'trakttv.png',    {'mode': 'trakt-menu', 'trakt-user' : my_addon.getSetting("trakt-username")})
     
-    database = r"D:\Bibliothèque\metadata.db"
-
-    # create a database connection
-    conn = create_connection(database)
-    with conn:
-      
-
-        print("2. Query all tasks")
-        select_all_tasks(conn)
+    if my_addon.getSetting("uptobox-active") == 'true':
+        mylistItem.listItemAddFolder('myUptobox',  'uptobox.png',  {'mode': 'uptobox-menu'})
 
 
-#elif mode[0] == 'prochainement' or mode[0] == 'actuellement' or mode[0] == 'popular' or mode[0] == 'bestrank' or  mode[0] == 'lists'  or  mode[0] == 'search':
-elif mode[0] in ['prochainement','actuellement' ,'popular' , 'bestrank' , 'lists'  ,'search']:
-    
-    page = args['page'][0]
+# ---------------------------RECHERCHER -------------------------
+elif mode[0] in ['searchengine']:
+    mylistItem.listItemAddFolder('Recherche Films',        'search.png', {'mode': 'search', 'page' : '1', 'q' : ' ', 'type':'movie'})
+    mylistItem.listItemAddFolder('Recherche Séries',       'search.png', {'mode': 'search', 'page' : '1', 'q' : ' ', 'type':'tv'})
+    mylistItem.listItemAddFolder('Recherche Acteurs',      'search.png', {'mode': 'search', 'page' : '1', 'q' : ' ', 'type':'person'})
+    mylistItem.listItemAddFolder('Recherche Sagas',        'search.png', {'mode': 'search', 'page' : '1', 'q' : ' ', 'type':'collection'})
+    mylistItem.listItemAddFolder('Recherche Studios',      'search.png', {'mode': 'search', 'page' : '1', 'q' : ' ', 'type':'company'})
+    mylistItem.listItemAddFolder('Recherche Mots-clés',    'search.png', {'mode': 'search', 'page' : '1', 'q' : ' ', 'type':'keyword'})
 
-    # gestion de Search
-    d = ''
-    if mode[0] == 'search':
+elif mode[0] in ['search']:
+    page    = args['page'][0]
+    q       = args['q'][0]
+    search  = args['type'][0]
+
+    if q == ' ':
         dialog = xbmcgui.Dialog()
-        d = dialog.input('Votre recherche', defaultt='', type=xbmcgui.INPUT_ALPHANUM)
+        q = dialog.input('Votre recherche', defaultt='', type=xbmcgui.INPUT_ALPHANUM)
+
+    param = {
+        'page'  : page,
+        'type'  : search
+    }
+    items = mytmdb.getSearch(q, param=param)
+
+    mylistItem.listItemAddSeparator('search', '%s résultats - page %s/%s' % (items['total_results'],  page, items['total_pages']))
+
+    for item in items['results']:
+        try:
+            if search == 'movie'        :       addMovie(item['id'], isfolder = True)
+            if search == 'tv'           :       addTVShow(item['id'], isfolder = True)
+            if search == 'person'       :       mylistItem.listItemAddPerson(item)
+            if search == 'collection'   :       mylistItem.listItemAddSaga(item)
+            if search == 'company'      :       mylistItem.listItemAddStudio(item)
+            if search == 'keyword'      :       mylistItem.listItemAddTag(item)
+        except:
+            pass
+
+    if items['total_pages'] != int(page):
+        mylistItem.listItemAddFolder('Plus', 'next.png', {'mode': 'search', 'page' : int(page) + 1, 'q' : q, 'type': search})
+
+    if search == 'movie'    :   xbmcplugin.setContent(addon_handle, 'movies')
+    if search == 'tv'       :   xbmcplugin.setContent(addon_handle, 'tvshows')
+
+
+# --------------------------- TMDB -------------------------
+elif mode[0] in ['mytmdb-menu']:
+    #movies
+    mylistItem.listItemAddFolder('Liste de suivi',     'watchlist.png',    {'mode': 'mytmdb-watchlist', 'page' : '1'})
+    mylistItem.listItemAddFolder('Favoris',            'favorites.png',    {'mode': 'mytmdb-favorites', 'page' : '1'})        
+    mylistItem.listItemAddFolder('Films notés',        'rated.png',        {'mode': 'mytmdb-ratedmovies', 'page' : '1'})
+    #tv
+    mylistItem.listItemAddFolder('Liste de suivi',     'watchlist.png',    {'mode': 'mytmdb-tvshowwatchlist', 'page' : '1'})
+    mylistItem.listItemAddFolder('Favoris',            'favorites.png',    {'mode': 'mytmdb-tvshowfavorites', 'page' : '1'})        
+    mylistItem.listItemAddFolder('Séries notées',      'rated.png',        {'mode': 'mytmdb-tvshowrated', 'page' : '1'})
+    #gestion des listes personnelles de movieDB
+    mylistItem.listItemAddFolder('Créer une liste',    'listadd.png',      {'mode': 'mytmdb-createlist'}, isfolder = False, isPlayable=False)
+    userlists = mytmdb.userGetLists()
+    for list in userlists['results']:
+        mylistItem.listItemAddList(list)
+
+    mylistItem.listItemAddFolder('Autres listes tmdb',  'tmdb.png',        {'mode': 'mytmdb-tmdblists'})
+
+
+elif mode[0] in ['mytmdb-list']:
+    tmdbID = args['tmdbid'][0]
+    items = mytmdb.getList(tmdbID)
+    for item in items['items']:
+        if item['media_type'] == 'movie':
+            addMovie(str(item['id']), isfolder = True, idliste = tmdbID)
+        elif item['media_type'] == 'tv':
+            addTVShow(str(item['id']), isfolder = True, idliste = tmdbID) 
     
+    xbmcplugin.setContent(addon_handle, 'videos')
 
-    data = getDataMovieDB(mode[0], page= page, q= d, codeiso = MOVIEDB_LANGUAGE)       
-    for item in data:
 
-        chaineGenre =  formatGenres(item['genre_ids'])
+elif mode[0] in ['mytmdb-favorites', 'mytmdb-watchlist', 'mytmdb-ratedmovies']:
+    if mode[0] == 'mytmdb-watchlist':
+        results = userMoviesWatchlist
+    elif mode[0] == 'mytmdb-ratedmovies':
+        results = userMoviesRated
+    elif mode[0] == 'mytmdb-favorites':
+        results = userMoviesFavorites
 
-        infos = listItemSetInfo(item, chaineGenre)
-        pictures = None
-        if item['poster_path'] != None:
-            pictures = listItemSetPictures(item['poster_path'])
+    # identifier tous les tmdbid qui ne sont pas dans sql    
+    rows = mytmdb.selectMultipleSQL("SELECT tmdbid FROM movies")
+    ids = [row['tmdbid'] for row in rows]
 
-        listItemAddFolder(item['title'], '', {'mode': 'trailer', 'action':item['id']}, None, infos, pictures)
+    for list in results['data']:
+        if list['tmdb_id'] not in ids:
+            # ajouter dans sql les films manquants
+            mytmdb.getMovie(str(list['tmdb_id']), force= True)
+    
+    s = ",".join([str(i['tmdb_id']) for i in results['data']])
+    rows = mytmdb.selectMultipleSQL("SELECT * FROM movies WHERE tmdbid IN (%s)"  % (str(s)))
+    for row in rows:
+        addMovie(str(row['tmdbid']), isfolder = True, movie = json.loads(row['jsontmdb']))
+    #listAddSortMethod('movie')
 
-    if mode[0] != 'lists':
-        listItemAddFolder('Next', 'next.png', {'mode': mode[0], 'page' : str(int(page) + 1)})
+    xbmcplugin.setContent(addon_handle, 'movies')
 
+
+elif mode[0] in ['mytmdb-tvshowfavorites', 'mytmdb-tvshowwatchlist', 'mytmdb-tvshowrated']:
+    if mode[0] == 'mytmdb-tvshowwatchlist':
+        results = userTVShowWatchlist
+    elif mode[0] == 'mytmdb-tvshowrated':
+        results = userTVShowRated
+    elif mode[0] == 'mytmdb-tvshowfavorites':
+        results = userTVShowFavorites
+
+    # identifier tous les tmdbid qui ne sont pas dans sql 
+    rows = mytmdb.selectMultipleSQL("SELECT tmdbid FROM tvshows")
+    ids = [row['tmdbid'] for row in rows]
+
+    for list in results['data']:
+        if list['tmdb_id'] not in ids:
+            # ajouter dans sql les series manquantes
+            mytmdb.getTVShow(str(list['tmdb_id']), force = True)
+          
+    s = ",".join([str(i['tmdb_id']) for i in results['data']])
+    rows = mytmdb.selectMultipleSQL("SELECT * FROM tvshows WHERE tmdbid IN (%s)"  % (str(s)))
+    for row in rows:
+        addTVShow(str(row['tmdbid']), isfolder = True, tvshow = json.loads(row['jsontmdb']))
+
+    xbmcplugin.setContent(addon_handle, 'tvshows')
+
+
+elif mode[0] == 'mytmdb-tmdblists':
+    mylistItem.listItemAddFolder('Actuellement', 'now_playing.png', {'mode': 'mytmdb-nowplaying', 'page' : '1'})
+    mylistItem.listItemAddFolder('Prochainement', 'upcoming.png',   {'mode': 'mytmdb-upcoming', 'page' : '1'})
+    mylistItem.listItemAddFolder('Populaire', 'popular.png',        {'mode': 'mytmdb-popular', 'page' : '1'})
+    mylistItem.listItemAddFolder('Top Rated', 'top_rated.png',      {'mode': 'mytmdb-toprated', 'page' : '1'})
+
+    mylistItem.listItemAddFolder('Diffusée aujourd\'hui', 'now_playing.png',    {'mode': 'mytmdb-airingtoday', 'page' : '1'})
+    mylistItem.listItemAddFolder('Diffusée actuellement', 'upcoming.png',       {'mode': 'mytmdb-ontheair', 'page' : '1'})
+    mylistItem.listItemAddFolder('Populaire', 'popular.png',                    {'mode': 'mytmdb-tvshowpopular', 'page' : '1'})
+    mylistItem.listItemAddFolder('Top Rated', 'top_rated.png',                  {'mode': 'mytmdb-tvshowtoprated', 'page' : '1'})    
+
+
+elif mode[0] in ['mytmdb-upcoming', 'mytmdb-popular', 'mytmdb-toprated', 'mytmdb-nowplaying']:
+    if mode[0] == 'mytmdb-upcoming'     : type = 'upcoming'
+    if mode[0] == 'mytmdb-popular'      : type = 'popular'
+    if mode[0] == 'mytmdb-toprated'     : type = 'top_rated'
+    if mode[0] == 'mytmdb-nowplaying'   : type = 'now_playing'
+
+    page = args['page'][0]
+    myLists = mytmdb.getMovies(type, {'page' : page} )
+    for movie in myLists['results']:
+        addMovie(str(movie['id']), isfolder = True)
+
+    mylistItem.listItemAddFolder('Next', 'next.png', {'mode': mode[0], 'page' : str(int(page) + 1)})
+    xbmcplugin.setContent(addon_handle, 'movies')
+
+
+elif mode[0] in ['mytmdb-ontheair', 'mytmdb-tvshowpopular', 'mytmdb-tvshowtoprated', 'mytmdb-airingtoday']:
+    if mode[0] == 'mytmdb-ontheair'         : type = 'on_the_air'
+    if mode[0] == 'mytmdb-tvshowpopular'    : type = 'popular'
+    if mode[0] == 'mytmdb-tvshowtoprated'   : type = 'top_rated'
+    if mode[0] == 'mytmdb-airingtoday'      : type = 'airing_today'
+
+    page = args['page'][0]
+    myLists = mytmdb.getTVShows(type, {'page' : page} )
+    for movie in myLists['results']:
+        addTVShow(str(movie['id']), isfolder = True)
+
+    mylistItem.listItemAddFolder('Next', 'next.png', {'mode': mode[0], 'page' : str(int(page) + 1)})
+    xbmcplugin.setContent(addon_handle, 'tvshows')   
+
+
+# --------------------------- MEDIAS -------------------------
+elif mode[0] == 'movie':
+    tmdbID = args['tmdbID'][0]
+    addMovie(tmdbID, isfolder = False)
+    mylistItem.listItemAddFolder('Bande-annonces',     'trailer.png',       {'mode': 'trailer', 'tmdbid' : tmdbID, 'media' : 'movies'})    
+    mylistItem.listItemAddFolder('Acteurs',            'cast.png',          {'mode': 'cast', 'tmdbid' : tmdbID, 'media' : 'movies'})
+    mylistItem.listItemAddFolder('Similaires',         'search.png',        {'mode': 'similar', 'tmdbid' : tmdbID, 'media' : 'movies'})
+    mylistItem.listItemAddFolder('Recommandations',    'recommended.png',   {'mode': 'recommendations', 'tmdbid' : tmdbID, 'media' : 'movies'})
+
+
+elif mode[0] == 'tvshow':
+    tmdbID = args['tmdbID'][0]
+    addSeasons(tmdbID)
+    mylistItem.listItemAddFolder('Bande-annonces',     'trailer.png',       {'mode': 'trailer', 'tmdbid' : tmdbID, 'media' : 'tvshows'})    
+    mylistItem.listItemAddFolder('Acteurs',            'cast.png',          {'mode': 'cast', 'tmdbid' : tmdbID, 'media' : 'tvshows'})
+    mylistItem.listItemAddFolder('Similaires',         'search.png',        {'mode': 'similar', 'tmdbid' : tmdbID, 'media' : 'tvshows'})
+    mylistItem.listItemAddFolder('Recommandations',    'recommended.png',   {'mode': 'recommendations', 'tmdbid' : tmdbID, 'media' : 'tvshows'})
 
 
 elif mode[0] == 'trailer':
+    tmdbID = args['tmdbid'][0]
+    media = args['media'][0]
+    if media == 'movies':   item = mytmdb.openMovie(tmdbID)   
+    if media == 'tvshows':  item = mytmdb.openTVShow(tmdbID) 
 
-    mId = args['action'][0]
-
-    data2 = getDataMovieDB('movie', mId)
-
-    chaineGenre2 = formatGenres2(data2['genres'])
-
-    infos = listItemSetInfo(data2, chaineGenre2)
-
-    dataFR = getDataMovieDB('videos', mId, MOVIEDB_LANGUAGE)
-
-    if MOVIEDB_LANGUAGE != 'en-US':
-        dataUS = getDataMovieDB('videos', mId, 'en-US')
-        data = dataFR['results']
-        for item in dataUS['results']:
-            data.append(item)
-
-    for item in data:
-        if item['site']=='YouTube' and (item['type'] == 'Trailer' or item['type']== 'Teaser'):
-
-            url = 'plugin://plugin.video.youtube/play/?video_id=' + item['key']
-            nom = item['name']+ " [" + str(item['size']) + "p]"
-
-            if data2['poster_path'] != None:
-                pictures = listItemSetPictures(data2['poster_path']) 
-
-            listItemAddFolder(nom, '', url.encode('utf8', 'replace'),
-                             [('Add to List', 'RunPlugin(%s?mode=addfav&mid=%s&name=%s&key=%s&idtrailer=%s)' % (base_url, mId, urllib.parse.quote(nom), item['key'], item['id'] )) ], 
-                              infos, pictures, False, True)
+    trailers = item['videos']
+    trailerslist = trailers['results']
+    
+    if my_addon.getSetting("tmdb-langue") != 'en-US':
+        if media == 'movies':   dataUS = mytmdb.getTrailersUS(tmdbID, 'movie')
+        if media == 'tvshows':  dataUS = mytmdb.getTrailersUS(tmdbID, 'tv')
+        trailersUS = dataUS['videos']
+        trailerslist = trailerslist + trailersUS['results']
+  
+    for trailer in trailerslist:
+        mylistItem.listItemAddTrailer(item, trailer)
 
 
+elif mode[0] == 'cast':
+    tmdbID = args['tmdbid'][0]
+    media = args['media'][0]
+    if media == 'movies':   item = mytmdb.getMovie(tmdbID)
+    if media == 'tvshows':  item = mytmdb.getTVShow(tmdbID)
+    cast = item['credits']
+    for director in cast['crew']:
+        if director['job'] == 'Director':
+            mylistItem.listItemAddCast(item, director)
+    for actor in cast['cast']:
+        mylistItem.listItemAddCast(item, actor)
 
 
-elif mode[0] == 'favorites':
-    idlist = args['page'][0]
-    soup = BeautifulSoup(favOpenXML())
-    for link in soup.findAll('fav'):
+elif mode[0] in ['similar','recommendations']:
+    tmdbID = args['tmdbid'][0]
+    media = args['media'][0]
+    if media == 'movies':
+        items = mytmdb.getMovies(mode[0], {'idtmdb': tmdbID})
+        for item in items['results']:
+            addMovie(str(item['id']), isfolder = True) 
+    elif media == 'tvshows':
+        items = mytmdb.getTVShows(mode[0].replace('tv', ''), {'idtmdb': tmdbID})
+        for item in items['results']:
+            addTVShow(str(item['id']), isfolder = True)         
+
+    xbmcplugin.setContent(addon_handle, media)
+
+
+elif mode[0] in ['saga']:
+    tmdbID = args['tmdbid'][0]
+    items = mytmdb.getSaga(tmdbID)
+    for item in items['parts']:
+        addMovie(str(item['id']), isfolder = True, idliste = tmdbID) 
+    xbmcplugin.setContent(addon_handle, 'movies')        
+
+
+# rajouter les tvshows dans les résultats
+elif mode[0] in ['studio']:
+    tmdbID = args['tmdbid'][0]
+    items = mytmdb.getStudio(tmdbID)
+    for item in items['results']:
+        addMovie(str(item['id']), isfolder = True, idliste = tmdbID) 
+    
+    xbmcplugin.setContent(addon_handle, 'videos')
+
+
+# rajouter les tvshows dans les résultats
+elif mode[0] in ['tag']:
+    tmdbID = args['tmdbid'][0]
+    items = mytmdb.getTag(tmdbID)
+    for item in items['results']:
+         addMovie(str(item['id']), isfolder = True, idliste = tmdbID) 
+    
+    xbmcplugin.setContent(addon_handle, 'videos')
+
+
+elif mode[0] == 'actor':
+    tmdbID = args['tmdbid'][0]
+    r = mytmdb.getPeople(tmdbID)
+    for item in r['cast']:
+        try:
+            if item['media_type'] == 'tv'       :   addTVShow(str(item['id']), isfolder=True) 
+            if item['media_type'] == 'movie'    :   addMovie(str(item['id']), isfolder=True)
+        except:
+            pass
+    for item in r['crew']:
+        try:
+            if item['job'] == 'Director':
+                if item['media_type'] == 'tv'       :   addTVShow(str(item['id']), isfolder=True) 
+                if item['media_type'] == 'movie'    :   addMovie(str(item['id']), isfolder=True)
+        except:
+            pass
+            
+    xbmcplugin.setContent(addon_handle, 'videos')
+
+
+elif mode[0] == 'episodes':
+    tmdbID = args['tmdbID'][0]
+    season_number = args['season_number'][0]
+    addSeason(tmdbID, season_number)
+
+    xbmcplugin.setContent(addon_handle, 'episodes')
+
+
+
+
+# --------------------------- TRAKT -------------------------
+
+elif mode[0] in ['trakt-menu']:
+    user =  args['trakt-user'][0]
+    mylistItem.listItemAddFolder('Films Watchlist',        'watchlist.png',    {'mode': 'trakt-watchlist', 'type' : 'movies', 'user' : user})
+    mylistItem.listItemAddFolder('Films Collection',       'favorites.png',    {'mode': 'trakt-collection', 'type' : 'movies', 'user' : user})        
+    mylistItem.listItemAddFolder('Films Historique',       'rated.png',        {'mode': 'trakt-history', 'type' : 'movies', 'user' : user})
+    mylistItem.listItemAddFolder('Films notés',            'rated.png',        {'mode': 'trakt-ratings', 'type' : 'movies', 'user' : user})
+
+    mylistItem.listItemAddFolder('Progress Watched',       'favorites.png',    {'mode': 'trakt-progress', 'type' : 'shows', 'user' : user}) # NE MARCHE PAS
+    mylistItem.listItemAddFolder('Progress Collected',     'favorites.png',    {'mode': 'trakt-progress', 'type' : 'shows', 'user' : user}) # NE MARCHE PAS
+
+
+    
+    mylistItem.listItemAddFolder('Séries Watchlist',       'watchlist.png',    {'mode': 'trakt-watchlist', 'type' : 'shows', 'user' : user})
+    mylistItem.listItemAddFolder('Séries Collection',      'favorites.png',    {'mode': 'trakt-collection', 'type' : 'shows', 'user' : user})
+    mylistItem.listItemAddFolder('Historique Séries',      'favorites.png',    {'mode': 'trakt-history', 'type' : 'shows', 'user' : user}) # affiche les episodes en  fait
+    mylistItem.listItemAddFolder('Séries notées',          'rated.png',        {'mode': 'trakt-ratings', 'type' : 'shows', 'user' : user})
+
+
+    mylistItem.listItemAddFolder('Episodes Collection',    'favorites.png',    {'mode': 'trakt-collection', 'type' : 'episodes', 'user' : user})  # NE MARCHE PAS
+    mylistItem.listItemAddFolder('Séries en cours',        'favorites.png',    {'mode': 'trakt-progress', 'type' : 'shows', 'user' : user}) # NE MARCHE PAS
+    mylistItem.listItemAddFolder('Upcoming schedule',      'favorites.png',    {'mode': 'trakt-upcoming', 'type' : 'shows', 'user' : user}) # detailler les episodes
+
+    mylistItem.listItemAddFolder('Historique Episodes',    'favorites.png',    {'mode': 'trakt-history', 'type' : 'episodes', 'user' : user}) # detailler les episodes
+
+    mylistItem.listItemAddFolder('Saisons notées',         'rated.png',        {'mode': 'trakt-ratings', 'type' : 'seasons', 'user' : user})  # NE MARCHE PAS
+    mylistItem.listItemAddFolder('Episodes notés',         'rated.png',        {'mode': 'trakt-ratings', 'type' : 'episodes', 'user' : user}) # NE MARCHE PAS
+
+    mylistItem.listItemAddFolder('Créer une liste',        'listadd.png',      {'mode': 'trakt-createlist'}, isfolder = False, isPlayable=False)
+    mylistItem.listItemAddFolder('Mes listes Trakt',       'trakt.png',        {'mode': 'trakt-user-lists', 'user' : user})
+    mylistItem.listItemAddFolder('Mes listes aimées',      'trakt.png',        {'mode': 'trakt-liked-lists', 'user' : user})
+    mylistItem.listItemAddFolder('Trakt Social',           'trakt.png',        {'mode': 'trakt-social', 'user' : user})
+    mylistItem.listItemAddFolder('Autres listes Trakt',    'trakt.png',        {'mode': 'trakt-lists', 'user' : user})
+
+
+elif mode[0] in ['trakt-user-lists']:
+    userlists = mytrakt.getUserLists(args['user'][0])
+    for list in userlists:
+        mylistItem.listItemAddTraktList(list)
+
+elif mode[0] in ['trakt-liked-lists']:
+    userlists = mytrakt.getUserLikedLists(args['user'][0])
+    for list in userlists:
+        mylistItem.listItemAddTraktLikedList(list)    
+
+elif mode[0] in ['trakt-lists']:
+    mylistItem.listItemAddFolder('Films trending',             'watchlist.png',    {'mode': 'trakt-trending', 'type' : 'movies'})
+    mylistItem.listItemAddFolder('Films populaires',           'popular.png',      {'mode': 'trakt-popular', 'type' : 'movies'})        
+    mylistItem.listItemAddFolder('Films les plus regardés',    'now_playing.png',  {'mode': 'trakt-now-playing', 'type' : 'movies'})
+    mylistItem.listItemAddFolder('Films les plus vus',         'rated.png',        {'mode': 'trakt-most-viewed', 'type' : 'movies'})
+    mylistItem.listItemAddFolder('Films les plus recommandés', 'watchlist.png',    {'mode': 'trakt-most-recommended', 'type' : 'shows'})
+
+elif mode[0] in ['trakt-social']:
+    mylistItem.listItemAddFolder('Mes amis',               'trakt.png',        {'mode': 'trakt-user-friends'})
+    mylistItem.listItemAddFolder('Mes following',          'trakt.png',        {'mode': 'trakt-user-following'})
+    mylistItem.listItemAddFolder('Mes followers',          'trakt.png',        {'mode': 'trakt-user-followers'})
+
+elif mode[0] in ['trakt-list']:
+    traktID = args['traktid'][0]
+    items = mytrakt.getList(traktID)
+    for item in items:
+        if item['type'] == 'movie':
+            addMovie(str(item['movie']['ids']['tmdb']), isfolder = True)
+        elif item['type'] == 'show':
+            addTVShow(str(item['show']['ids']['tmdb']), isfolder = True) 
+
+    listAddSortMethod('movie')
+
+
+
+elif mode[0] in ['trakt-watchlist', 'trakt-collection', 'trakt-history', 'trakt-ratings', 'trakt-trending', 'trakt-popular', 'trakt-now-playing', 'trakt-most-viewed', 'trakt-most-recommended' ]:
+    type = args['type'][0]
+    
+    if 'user' in args:
+        usertrakt = args['user'][0]
+
+        if usertrakt == my_addon.getSetting("trakt-username"):
+            if mode[0] == 'trakt-watchlist' : items = mytrakt.getWatchlist(type)
+            if mode[0] == 'trakt-collection' : items = mytrakt.getCollection(type)
+            if mode[0] == 'trakt-history' : items = mytrakt.getHistory(type)
+            if mode[0] == 'trakt-ratings' : items = mytrakt.getRatings(type)
+        else:
+            if mode[0] == 'trakt-watchlist' : items = mytrakt.getUserWatchlist(type, usertrakt)
+            if mode[0] == 'trakt-collection' : items = mytrakt.getUserCollection(type, usertrakt)
+            if mode[0] == 'trakt-history' : items = mytrakt.getUserHistory(type, usertrakt)
+            if mode[0] == 'trakt-ratings' : items = mytrakt.getUserRatings(type, usertrakt)
+
+    if mode[0] == 'trakt-trending' : items = mytrakt.getTrending(type)
+    if mode[0] == 'trakt-popular' : items = mytrakt.getPopular(type)
+    if mode[0] == 'trakt-now-playing' : items = mytrakt.getMostWatched(type)
+    if mode[0] == 'trakt-most-viewed' : items = mytrakt.getMostPlayed(type)
+    if mode[0] == 'trakt-most-recommended' : items = mytrakt.getMostRecommended(type)
+
+    for item in items:
+        #xbmc.log('------------------------------'+str(item))
+        if 'type' in item:
+            if item['type'] == 'movie':
+                addMovie(str(item['movie']['ids']['tmdb']), isfolder = True)
+            elif item['type'] == 'show':
+                addTVShow(str(item['show']['ids']['tmdb']), isfolder = True)
+            elif item['type'] == 'episode':
+                addTVShow(str(item['show']['ids']['tmdb']), isfolder = True)                
+        elif 'movie' in item:
+            addMovie(str(item['movie']['ids']['tmdb']), isfolder = True)
+        elif 'show' in item:
+            addTVShow(str(item['show']['ids']['tmdb']), isfolder = True)
+        elif 'episode' in item:
+            addTVShow(str(item['show']['ids']['tmdb']), isfolder = True)
+    if type == "movies" : xbmcplugin.setContent(addon_handle, 'movies')
+    if type == "shows" : xbmcplugin.setContent(addon_handle, 'tvshows')  
+
+
+
+elif mode[0] in ['trakt-user-friends']:
+    friends = mytrakt.getUserFriends()
+    for list in friends:
+        mylistItem.listItemAddTraktFriend(list)
+
+
+elif mode[0] in ['trakt-user-following']:
+    friends = mytrakt.getUserFollowing()
+    for list in friends:
+        mylistItem.listItemAddTraktFriend(list)
+
+
+elif mode[0] in ['trakt-user-followers']:
+    friends = mytrakt.getUserFollowers()
+    for list in friends:
+        mylistItem.listItemAddTraktFriend(list)
+
+
+
+elif mode[0] in ['trakt-upcoming']:
+    upcoming = mytrakt.getCalendarMyShows()
+    dateprecedente =  ''
+    for item in upcoming:
+        idshow  = item['show']['ids']['tmdb']
+        idepisode  = item['episode']['ids']['tmdb']
+        # deux types de listItem : une date et un episode
+        datediffusion = item['first_aired'][0:10]
+        if datediffusion != dateprecedente:
+
+
+            xbmc.log('------------------------------------------' + datediffusion + '---------------------------------------------')
+            mylistItem.listItemAddSeparator('date', str(datediffusion))
+            # Ajouter la date
+            
+        xbmc.log(str(item) + str( type(datediffusion)))
+        season = mytmdb.getTVShowSeason(idshow, item['episode']['season'], force = True)
+        tvshow = mytmdb.getTVShow(idshow)
+    
         
-        if link['id'] == idlist:
-            for fav in link.findAll('trailer'):
-                url = 'plugin://plugin.video.youtube/play/?video_id=' + fav['key']
-                data2 = getDataMovieDB('movie', fav['idmovie'])
-
-                chaineGenre = formatGenres2(data2['genres'])
-
-                infos = listItemSetInfo(data2, chaineGenre)
-
-                if data2['poster_path'] != None:
-                    pictures = listItemSetPictures(data2['poster_path'])
-
-                listItemAddFolder(fav.string, '', url.encode('utf8', 'replace'),
-                                [('Remove from list', 'RunPlugin(%s?mode=removefav&id=%s)' % (base_url, fav['idtrailer']) )], 
-                                 infos, pictures, False, True)
-
-
+        for episode in season['episodes']:
+            if item['episode']['number'] == episode['episode_number']:
+                li = xbmcgui.ListItem(episode['name'])
+                li.setProperty('isplayable','true')
+                infos = t2k.listItemSetInfoEpisode(idshow, tvshow, season , episode, imdbTVShowsTop250, userTVShowRated)
+                infos[0]['media_type'] = 'episode'
+                li.setInfo('video', infos[0])
+                li.setCast(infos[2])
+                li.setArt(infos[1])
+                url = build_url({'mode': 'playepisode', 'tmdbID' : idepisode}) 
+                xbmcplugin.addDirectoryItem(handle=addon_handle, url=url, listitem=li, isFolder = False) 
+            # Ajouter l'episode
+            #listItemSetInfoEpisode(tmdbID, tvshow, season, episode)
+        
+        dateprecedente = datediffusion
 
 
 
-elif mode[0] == 'addlist':
+
+    """
+    *********************************************
+    ACTIONS TMDB
+    *********************************************
+    """
+#FONCTIONNEL
+elif mode[0] == 'mytmdb-createlist':
     dialog = xbmcgui.Dialog()
-    name = dialog.input('List Name', defaultt='', type=xbmcgui.INPUT_ALPHANUM)
+    name = dialog.input('Nom de la liste', defaultt='', type=xbmcgui.INPUT_ALPHANUM)
     if name != "":
-        favAddListe(name)
-    #actualiser la vue
+        description = dialog.input('Description de la liste', defaultt='', type=xbmcgui.INPUT_ALPHANUM)
+        retour = mytmdb.createList(name, description)
     xbmc.executebuiltin('Container.Refresh')
+    if retour['success'] == True:
+        writeNotification('Nouvelle liste créée %s (%s)' % (name, str(retour['list_id'])))
+    else:
+        writeNotification('Erreur %s - %s' % (name, str(retour['status_message'])))
 
-
-### CONTEXT MENU ###
-elif mode[0] == 'removelist':
+#FONCTIONNEL
+elif mode[0] == 'mytmdb-deletelist':
     id = args['id'][0]
-    favDelListe(id)
-    #actualiser la vue
+    retour = mytmdb.userDeleteList(id)
     xbmc.executebuiltin('Container.Refresh')
+    writeNotification('La liste a été supprimée %s' % (id))
 
-elif mode[0] == 'renamelist':
+#FONCTIONNEL
+elif mode[0] == 'mytmdb-addmovietolist':
     id = args['id'][0]
-    favRenameListe(id)
-    #actualiser la vue
-    xbmc.executebuiltin('Container.Refresh')    
-
-
-elif mode[0] == 'addfav':
-    soup = BeautifulSoup(favOpenXML(), 'html.parser')
-    liste =[]
-    for link in soup.findAll('fav'):
-        liste.append(link['name'])
+    myLists = mytmdb.userGetLists()
+    ids     = [list['id'] for list in myLists['results']]
+    labels  = [list['name'] for list in myLists['results']]
 
     dialog = xbmcgui.Dialog()
-    ret = dialog.select('Kodi', liste )
+    liste = dialog.select('Choisissez une liste', labels, useDetails = True)
+    if liste != -1:
+        retour = mytmdb.addToList(id, ids[liste])
+        if retour['success'] == True:
+            writeNotification('Le film %s a été ajouté à la liste %s' % (id, labels[liste]))
+        else:
+            writeNotification('Erreur %s - %s' % (id, str(retour['status_message'])))
 
-    for link in soup.findAll('fav'):
-        if link['name']==liste[ret]:
-            id = link['id']
-    mid = args['mid'][0]
-    key = args['key'][0]
-    idtrailer = args['idtrailer'][0]
-    name = args['name'][0]
-
-    favAddFav(id, mid, idtrailer, name, key)
-
-
-elif mode[0] == 'removefav':
+#FONCTIONNEL
+elif mode[0] == 'mytmdb-addmovietonewlist':
     id = args['id'][0]
-    favDelFav(id)
-    #actualiser la vue
-    xbmc.executebuiltin('Container.Refresh')
+    dialog = xbmcgui.Dialog()
+    name = dialog.input('Nom de la liste', defaultt='', type=xbmcgui.INPUT_ALPHANUM)
+    if name != "":
+        description = dialog.input('Description de la liste', defaultt='', type=xbmcgui.INPUT_ALPHANUM)
+        r = mytmdb.createList(name, description)
+        if r['success'] == True:
+            retour = mytmdb.addToList(id, r['list_id'])
+            if retour['success'] == True:
+                writeNotification('Le film %s a été ajouté à la nouvelle liste %s' % (id, name))
+            else:
+                writeNotification('Erreur %s - %s' % (id, str(retour['status_message'])))        
 
-elif mode[0] == 'addsmartlist':
-    #window = xbmcgui.Window()
-    #dialog = xbmcgui.Dialog()
-    #name = dialog.input('List Name', defaultt='', type=xbmcgui.INPUT_ALPHANUM)
-    mydisplay = myWindow()
-    mydisplay.doModal()
-    del mydisplay
-    #del mydisplay
-    #actualiser la vue
-    #xbmc.executebuiltin('Container.Refresh')
+#FONCTIONNEL
+elif mode[0] == 'mytmdb-removefromlist':
+    id = args['id'][0]
+    idliste = args['idliste'][0]
+    retour = mytmdb.userRemoveFromList(idliste, id)
+    xbmc.executebuiltin('Container.Refresh')
+    writeNotification('Le film %s a été retiré de la liste %s' % (id, idliste))  
+
+#FONCTIONNEL
+elif mode[0] == 'removefromwatchlist':
+    tmdbid = args['id'][0]
+    mytmdb.removeFromWatchlist(tmdbid)
+    # supprimer de la key watchlist
+    mytmdb.removeFromKey('tmdb_movies_watchlist', tmdbid)
+    xbmc.executebuiltin('Container.Refresh')
+    writeNotification('Film retiré de ma liste de suivi')
+
+#FONCTIONNEL
+elif mode[0] == 'removefromfavorites':
+    tmdbid = args['id'][0]
+    mytmdb.removeFromFavorites(tmdbid)
+    # supprimer de la key favorites
+    mytmdb.removeFromKey('tmdb_movies_favorites', tmdbid)
+    xbmc.executebuiltin('Container.Refresh')    
+    writeNotification('Film retiré de mes favoris')
+
+#FONCTIONNEL
+elif mode[0] == 'addtofavorites':
+    tmdbid = args['id'][0]
+    mytmdb.addToFavorites(tmdbid)
+    # ajout à la key favorites
+    mytmdb.addToKey('tmdb_movies_favorites', tmdbid)
+    xbmc.executebuiltin('Container.Refresh')        
+    writeNotification('Film ajouté à mes favoris')    
+
+#FONCTIONNEL
+elif mode[0] == 'addtowatchlist':
+    tmdbid = args['id'][0]
+    mytmdb.addToWatchlist(tmdbid)
+    # ajout à la key watchlist
+    mytmdb.addToKey('tmdb_movies_watchlist', tmdbid)
+    xbmc.executebuiltin('Container.Refresh')   
+    writeNotification('Film ajouté à ma liste de suivi')
+
+#FONCTIONNEL
+elif mode[0] == 'ratemovie':
+    tmdbid = args['id'][0]
+    dialog = xbmcgui.Dialog()    
+    notes = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
+    note = dialog.select('Choisissez une note', notes)
+    if note != -1:
+        mytmdb.rateMovie(tmdbid, notes[note])
+        #Ajouter la note à la key tmdb_movies_rated
+        mytmdb.updateRatingKey('tmdb_movies_rated', tmdbid, notes[note])
+        xbmc.executebuiltin('Container.Refresh')
+        writeNotification('Note ajoutée')   
+
+
+    """
+    *********************************************
+    ACTIONS TRAKT
+    *********************************************
+    """
+
+#FONCTIONNEL 
+elif mode[0] == 'trakt-ratemovie':
+    tmdbid = args['id'][0]
+    dialog = xbmcgui.Dialog()    
+    notes = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10']
+    note = dialog.select('Choisissez une note', notes)
+    if note != -1:
+        mytrakt.addRating('movies', tmdbid, notes[note])
+        #Ajouter la note à la key tmdb_movies_rated
+        #mytmdb.updateRatingKey('tmdb_movies_rated', tmdbid, notes[note])
+        #xbmc.executebuiltin('Container.Refresh')
+        writeNotification('Note ajoutée') 
+
+#FONCTIONNEL
+elif mode[0] == 'trakt-addtowatchlist':
+    tmdbid = args['id'][0]
+    mytrakt.addMediaToWatchlist('movies', tmdbid)
+    # ajout à la key watchlist
+    #mytmdb.addToKey('tmdb_movies_watchlist', tmdbid)
+    #xbmc.executebuiltin('Container.Refresh')   
+    writeNotification('Film ajouté à ma liste de suivi')
+
+    """
+    /////////////////// TESTS DES CONNEXIONS  /////////////////////////////////
+    """    
+elif mode[0] ==  'test':
+    test = args['test'][0]
+    if test == 'tmdb':
+        tm = myTMDB.myTMDB(getTMDBParameters())
+        # tester api key
+        writeNotification('Tester tmdb api key : %s' % tm.tester('api'))
+        # tester identifiant
+
+        
+        #writeNotification(str(mytmdb.getMovies('popular')))
+
+    elif test == 'trakt':
+        tk = myTrakt.myTrakt(getTraktParameters())
+        writeNotification(str(tk.reorderUserList(23392994, 'rank', 'desc')))
+        # tester api key
+        writeNotification('Tester Trakt api key : %s' % tk.tester('api'))
+        # tester identifiant
+        writeNotification('Tester Trakt identifiant : %s' % tk.tester('user'))
+        # tester token
+        writeNotification('Tester Trakt token : %s' % tk.tester('token'))
+
+    elif test == 'trakt-install':
+        tk = myTrakt.myTrakt(getTraktParameters())
+        jDevice = tk.getDeviceCode()
+
+        dialog = xbmcgui.Dialog()
+        q = dialog.yesno('Trailer','Vous avez %s secondes pour aller sur l\'url %s et saisir le code suivant %s' % (jDevice['expires_in'], jDevice['verification_url'], jDevice['user_code']))
+        if q == True:
+            clientsecret = dialog.input('Votre Client secret : ', defaultt='', type=xbmcgui.INPUT_ALPHANUM)
+            jToken = tk.getToken(jDevice['device_code'], clientsecret)
+            if jToken is int:
+                writeNotification('Echec de la configuration : client secret faux')
+            else:
+                my_addon.setSettingString(id='trakt-access-token', value = jToken['access_token'])
+                my_addon.setSettingString(id='trakt-refresh-token', value = jToken['refresh_token'])
+                my_addon.setSettingString(id='trakt-clientsecret', value = clientsecret)
+                my_addon.setSettingInt(id='trakt-expire', value=  jToken['created_at'] + jToken['expires_in'])
+
+                writeNotification('Configuration Trakt : OK') 
+        else:
+            writeNotification('Abandon de la configuration') 
+    
+
+    elif test == 'fanarttv':
+        # tester api key
+        myfan = myFanartTV.myFanartTV(my_addon.getSetting("fanart-key"))
+        if myfan.tester() is not None:     
+            writeNotification('Tester Fanart.tv api key : OK')
+        else:
+            writeNotification('Tester Fanart.tv api key : Erreur')
+
+    elif test == 'uptobox':
+        # tester api key
+        # tester les dossiers
+        writeNotification(str(test))
+        
+
+
+
+
+
+# --------------------------- UPTOBOX -------------------------
+elif mode[0] == 'uptobox-menu':
+    mylistItem.listItemAddFolder('Films',          'movie.png',        {'mode': 'uptobox-movies'})    
+    mylistItem.listItemAddFolder('Séries',         'tvshow.png',       {'mode': 'uptobox-tvshows'})
+    mylistItem.listItemAddFolder('Importation',    'search.png',       {'mode': 'uptobox-importation'}, isfolder = False)
+    mylistItem.listItemAddFolder('Maintenance',    'recommended.png',  {'mode': 'uptobox-maintenance'}, isfolder = False)
+
+elif mode[0] == 'uptobox-maintenance':
+    u2b.check()
+    #ajouter les name dans sqlllite pourchaque fld_id
+    """
+    rows = mytmdb.getUptoboxFolderWithoutName()
+    data = u2b.getFiles('', 'movie')
+    data = data['data']
+    folders = data['folders']
+    for row in rows:
+        for folder in folders:
+            if row['fld_id'] == str(folder['fld_id']):
+                mytmdb.updateUptoboxFolderName(row['fld_id'], row['tmdbid'], folder['name'])
+    """
+
+
+elif mode[0] == 'uptobox-importation':
+    r = u2b.getFiles('', 'transfert')
+    data = r['data']
+    liste = data['files']
+
+    for file in liste:    
+        if file['file_descr'] == '':
+                
+            info = PTN.parse(file['file_name']) #'Hurlements.(Howling.I)).1981.MULTi.1080p.HDLight.x264.AC3-2.0-BLANK-Dread-Team.mkv')
+            title = info['title']
+            title = title.replace('.', ' ').replace(':', ' ').strip()
+            title = str(title.encode('utf_8').decode('utf_8'))
+            #xbmc.log('---------------------' + title)
+            rtmdb = mytmdb.getSearch(title)
+
+            if rtmdb['total_results'] == 1:
+                year = ''
+                if 'release_date' in rtmdb['results'][0]:  year = ' (' + rtmdb['results'][0]['release_date'][0:4] + ')'
+                u2b.importMovie(file['file_code'], rtmdb['results'][0]['id'], rtmdb['results'][0]['title'] + year)
+
+            if rtmdb['total_results'] > 1:
+                ret = viewSelect(rtmdb)
+                if ret > -1:
+                    year = ''
+                    if 'release_date' in rtmdb['results'][ret]:  year = ' (' + rtmdb['results'][ret]['release_date'][0:4] + ')'                    
+                    u2b.importMovie(file['file_code'], rtmdb['results'][ret]['id'], rtmdb['results'][ret]['title'] + year)
+                if ret == -1:
+                    dialog = xbmcgui.Dialog()
+                    ret = dialog.input(str(file['file_name']),title ,xbmcgui.INPUT_ALPHANUM)
+                    rtmdb = mytmdb.getSearch(ret)
+                    #xbmc.log('****************' + ret + str(rtmdb))
+                    ret = viewSelect(rtmdb)
+                    if ret > -1:
+                        year = ''
+                        if 'release_date' in rtmdb['results'][ret]:  year = ' (' + rtmdb['results'][ret]['release_date'][0:4] + ')'                            
+                        u2b.importMovie(file['file_code'], rtmdb['results'][ret]['id'], rtmdb['results'][ret]['title'] + year)
+
+            if rtmdb['total_results'] == 0:
+                dialog = xbmcgui.Dialog()
+                ret = dialog.input(str(file['file_name']),title ,xbmcgui.INPUT_ALPHANUM)
+                rtmdb = mytmdb.getSearch(ret)
+                ret = viewSelect(rtmdb)
+                if ret > -1:
+                    year = ''
+                    if 'release_date' in rtmdb['results'][ret]:  year = ' (' + rtmdb['results'][ret]['release_date'][0:4] + ')'    
+                    u2b.importMovie(file['file_code'], rtmdb['results'][ret]['id'], rtmdb['results'][ret]['title'] + year)
+
+        else:
+            # importation si file_descr = tmdbid
+            rtmdb = mytmdb.getMovie(file['file_descr'])
+            year = ''
+            if 'release_date' in rtmdb:  year = ' (' + rtmdb['release_date'][0:4] + ')'  
+            #xbmc.log('++++++++++++++++++++++++++++++++++'+str(rtmdb['title'])               )
+            u2b.importMovie(file['file_code'], file['file_descr'], str(rtmdb['title']) + year)
+
+
+
+elif mode[0] == 'uptobox-movies':
+
+    r = u2b.getFiles(media = 'movie')  
+    folders = r['data']
+    movies  = folders['folders']
+    movies.sort(key=lambda x: x["name"])
+
+    for movie in movies:
+        tmdbid = mytmdb.getUptoboxFolder(movie['fld_id'])
+        if tmdbid == False:
+            #Trouver le tmdbid
+            r = u2b.getFiles(str(movie['name']))
+            rfiles = r['data']
+            files = rfiles['files']
+            for file in files:
+                if file['file_descr'] != '':
+                    tmdbid = file['file_descr']
+            #Insérer le duo fld_id, tmdbid
+            mytmdb.saveUptoboxFolder(str(movie['fld_id']), tmdbid, movie['name'])
+            
+        addMovie(tmdbid, isfolder = True)
+        
+    listAddSortMethod('movie')
+
+
+
+
+
+
+
+
+
+elif mode[0] == 'play':
+    tmdbID = args['tmdbID'][0]
+    media = args['type'][0]
+    name = mytmdb.getUptoboxFolderName(id)
+    if name is not False:
+        r = u2b.getFiles(name, media)
+        data = r['data']
+        files = data['files']
+        for file in files:
+            if movie == {}:
+                movie = mytmdb.getMovie(tmdbID)
+            #data = listItemSetInfoMovie(str(tmdbID))
+            data = t2k.listItemSetInfoMovie(str(tmdbID), movie, imdbMoviesTop250, userMoviesRated)            
+            myListItems.listItemAddFile(tmdbID, file, data)
+
+    else:
+        writeNotification('Envoyer lecture vers addon, tmdb id = ' + id)
 
 xbmcplugin.endOfDirectory(addon_handle)
