@@ -99,17 +99,7 @@ def choixSQL(mode, id = None):
         sql = "SELECT text FROM comments WHERE book = " + id
     
 
-    
-    
-    
-    
     return selectSQL(sql)
-
-
-
-
-
-
 
 
 
@@ -178,13 +168,20 @@ def listItemSetInfo(book):
             'mediatype' : 'movie'
     } 
     return infos    
+
+
+
 ######################################
 # SETTINGS
 ######################################
 
 CHEMIN_BD_CALIBRE = r"D:\Bibliothèques\Science-fiction\metadata.db"
 PLAYER = 'C:\\Program Files\\Calibre2\\ebook-viewer.exe'
+### Voilà les chemins récupérés depuis les paramètres
+# "D:\Bibliothèques\Science-fiction\"
+# 'smb://DISKSTATION/Mediatheques/Bibliotheque/Science-fiction/'
 
+# buildURLCover(chemin):     return 'D://Bibliothèques/Science-fiction/' + chemin + '/cover.jpg'
 
 
 my_addon = xbmcaddon.Addon('plugin.video.doctornono.books')
@@ -195,6 +192,8 @@ args = urllib.parse.parse_qs(sys.argv[2][1:])
 mode = args.get('mode', None)
 xbmcplugin.setContent(addon_handle, 'movies')
 
+URL = my_addon.getSetting("langue")
+print(URL)
 
 ### ACCUEIL ###
 if mode is None:
