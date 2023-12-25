@@ -19,7 +19,7 @@ class myTMDB:
 
 
 	def setParameters(self, parametres):
-		self.MOVIEDB_KEY 			= parametres["api_key"]	  									# "9c1662a033ca5210dc75b91e0aa9b49e"
+		self.MOVIEDB_KEY 			= parametres["api_key"]	  								
 		self.MOVIEDB_LANGUAGE 		= parametres["langue"]  							# 'fr-FR'
 		self.MOVIEDB_USERNAME 		= parametres["username"]								# doctornono
 		self.MOVIEDB_USERPASSWORD 	= parametres["password"]						# cousin
