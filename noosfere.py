@@ -3,9 +3,9 @@ import urllib
 from urllib import request
 
 import re
-import scraperNoosfere
+from scraperNoosfere import scraperNoosfere
 
 
-myscrap = scraperNoosfere
-print(str(myscrap.scraperNoosfere.scrapLivre('2146579743')))
-print(str(myscrap.scraperNoosfere.scrapCollection('1975551973')))
+myscrap = scraperNoosfere()
+print(str(myscrap.scrapLivre('2146579743')))
+print(str(myscrap.scrapCollection('-10246496')))

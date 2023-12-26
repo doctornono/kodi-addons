@@ -5,26 +5,35 @@ import json
 import re
 
 class scraperNoosfere:
-    def scrapCollection(collection_id):
-        url = 'https://www.noosfere.org/livres/collection.asp?numcollection=' + collection_id
+
+    def scrapCollection(self, collection_id):
+        url = 'https://www.noosfere.org/livres/collection.asp?numcollection=' + collection_id + '&NumPage=1&CST_Pas=10'
         req = Request(url, headers={'User-Agent': 'Mozilla/5.0'})
         response = urlopen(req)
+        collection = {}
         resultat = []
-            # Vérification de la réussite de la requête
+        # Vérification de la réussite de la requête
         if response.getcode() == 200:
             soup = BeautifulSoup(response.read(), 'html.parser')
-            #print(soup)
+            # Extraction du nom de la serie
+            match = re.search(r'top\.document\.title="Collection (.+?)" \+ "(.+)" \+ "(.+)"', str(soup))
+            nomcollection = match.group(1).strip() if match else None
+            collection['nom_serie'] = str(nomcollection).replace('"','').replace('+','').strip()
+            
+            # Extraction du nombre de livres parus
+            livres_parus_element = soup.find("span", class_="ficheNiourf", text=lambda t: "livres parus" in t)
+            nombre_de_livres_parus = int(livres_parus_element.text.split()[0]) if livres_parus_element else None
+            collection['nombre_de_livres'] = nombre_de_livres_parus
+            collection['collection_id'] = collection_id
+
             tableau = soup.find('table', class_="noocadre_pad5")
             table = tableau.find_next('table')
             lignes = table.find_all('tr')
             for ligne in lignes:
                 json = {}
-                #print(ligne, '++++++++++++++++++')
-                numero =  str(ligne.find('td').get_text())
                 lien = ligne.find_all('a')
-                titre = lien[0].get_text()
-                fiche = lien[0]['href']
-                # Extraction du ISBN
+
+                # Extraction du numitem
                 match = re.search(r'./EditionsLivre\.asp\?numitem=(\d+)', str(ligne))
                 numitem = match.group(1).strip() if match else None
                 
@@ -34,16 +43,14 @@ class scraperNoosfere:
                 json['numitem'] = numitem
                 resultat.append(json)
             
+            collection['livres'] = resultat
 
-            for item in resultat:
-                print(item['numitem'])
-
-
-                
-            return resultat 
+            for livre in collection['livres']:
+                print(livre['titre'])
+            return collection
 
 
-    def scrapLivre(numlivre, html = None):
+    def scrapLivre(self, numlivre, html = None):
         if html == None:
             url = "https://www.noosfere.org/livres/niourf.asp?numlivre=" + numlivre
 
