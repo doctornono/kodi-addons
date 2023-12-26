@@ -5,18 +5,60 @@ import json
 import re
 
 class scraperNoosfere:
-    def scrapLivre(numlivre):
-        url = "https://www.noosfere.org/livres/niourf.asp?numlivre=2146579743"
-
-        # Envoi de la requête HTTP
+    def scrapCollection(collection_id):
+        url = 'https://www.noosfere.org/livres/collection.asp?numcollection=' + collection_id
         req = Request(url, headers={'User-Agent': 'Mozilla/5.0'})
         response = urlopen(req)
-
-        # Vérification de la réussite de la requête
+        resultat = []
+            # Vérification de la réussite de la requête
         if response.getcode() == 200:
-            # Analyse du contenu de la page avec BeautifulSoup et le parseur html.parser
             soup = BeautifulSoup(response.read(), 'html.parser')
+            #print(soup)
+            tableau = soup.find('table', class_="noocadre_pad5")
+            table = tableau.find_next('table')
+            lignes = table.find_all('tr')
+            for ligne in lignes:
+                json = {}
+                #print(ligne, '++++++++++++++++++')
+                numero =  str(ligne.find('td').get_text())
+                lien = ligne.find_all('a')
+                titre = lien[0].get_text()
+                fiche = lien[0]['href']
+                # Extraction du ISBN
+                match = re.search(r'./EditionsLivre\.asp\?numitem=(\d+)', str(ligne))
+                numitem = match.group(1).strip() if match else None
+                
+                #print(numero,  titre,  numitem)
+                json['numero'] = str(ligne.find('td').get_text().strip())
+                json['titre'] = lien[0].get_text()
+                json['numitem'] = numitem
+                resultat.append(json)
+            
 
+            for item in resultat:
+                print(item['numitem'])
+
+
+                
+            return resultat 
+
+
+    def scrapLivre(numlivre, html = None):
+        if html == None:
+            url = "https://www.noosfere.org/livres/niourf.asp?numlivre=" + numlivre
+
+            # Envoi de la requête HTTP
+            req = Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+            response = urlopen(req)
+
+            # Vérification de la réussite de la requête
+            if response.getcode() == 200:
+                # Analyse du contenu de la page avec BeautifulSoup et le parseur html.parser
+                html = response.read()
+
+
+
+            soup = BeautifulSoup(html, 'html.parser')
 
             # Extraction des informations
             titre = soup.find('span', {'class': 'TitreNiourf'}).text.strip()
@@ -179,6 +221,3 @@ class scraperNoosfere:
 
             # Afficher le JSON
             return livre_json
-
-        else:
-            print("La requête a échoué. Statut de la requête :", response.getcode())
